@@ -59,7 +59,7 @@ def parse_yaml_file(yaml_file):
         sys.exit(1)
 
 
-def generate_fstab(parsed_fstab, dry_run):
+def generate_fstab(parsed_fstab, dry_run, root_reserve):
     try:
         
         fstab_lines = []
@@ -95,7 +95,7 @@ def generate_fstab(parsed_fstab, dry_run):
 
             fstab_lines.append(line)
 
-            if 'root-reserve' in device_details and device_details['root-reserve'] and not dry_run: # In case we need to apply root reserve we should call related function here
+            if 'root-reserve' in device_details and device_details['root-reserve'] and not dry_run and root_reserve: # In case we need to apply root reserve we should call related function here
                 print(f"Apply root reserve of {device_details['root-reserve']} on {device_name} partition...")
 
         return fstab_lines
@@ -152,11 +152,11 @@ def backup_fstab(dry_run):
 
 
 
-def yaml_to_fstab(yaml_file, fstab_file, dry_run):
+def yaml_to_fstab(yaml_file, fstab_file, dry_run, root_reserve):
     
     parsed_fstab = parse_yaml_file(yaml_file)
     
-    generated_fstab = generate_fstab(parsed_fstab, dry_run)
+    generated_fstab = generate_fstab(parsed_fstab, dry_run, root_reserve)
     
     last_backup = backup_fstab(dry_run)
     
@@ -176,12 +176,13 @@ def main():
     parser.add_argument('--yaml_file', type=str, default=CONFIG["default_yaml_file"], help='Path to YAML file')
     parser.add_argument('--fstab_file', type=str, default=CONFIG["default_fstab_file"], help='Path to fstab file')
     parser.add_argument('--dry_run', action='store_true', help='Print generated fstab entries without change files')
+    parser.add_argument('--root_reserve', action='store_true', help='Apply root reserve')
 
     # Read command-line arguments and return args object
     args = parser.parse_args()
 
     # Call yaml_to_fstab function
-    yaml_to_fstab(args.yaml_file, args.fstab_file, args.dry_run)
+    yaml_to_fstab(args.yaml_file, args.fstab_file, args.dry_run, args.root_reserve)
 
 
 if __name__ == "__main__":
