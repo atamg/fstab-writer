@@ -2,12 +2,19 @@
 
 import re
 import sys
-import pprint
 
 CONFIG = {
     "device_pattern": r'^(/[^:]+|((25[0-5]|2[0-5][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])):$',  # Regex pattern for block devices, IPs
     "uuid_pattern": r'^(LABEL|UUID|PARTUUID|PARTLABEL)=[\w-]+$',  # Regex pattern for UUIDs, LABELs, PARTUUIDs, PARTLABELs
-    "key_value_patten": r'^([\w-]+):\s*(.*)$' # Regex pattern for key-value for each device
+    "key_value_patten": r'^([\w-]+):\s*(.*)$', # Regex pattern for key-value for each device
+    "supported_mount_type": [
+        "sysfs","tmpfs","bdev","proc","cgroup","cgroup2","cpuset",
+        "devtmpfs","configfs","debugfs","tracefs","securityfs",
+        "sockfs","bpf","pipefs","ramfs","hugetlbfs","devpts","ext3",
+        "ext2","ext4","squashfs","vfat","ecryptfs","fuseblk","fuse",
+        "fusectl","efivarfs","mqueue","pstore","autofs","binfmt_misc",
+        "vboxsf","overlay", "none", "xfs", "nfs", "swap"
+        ]
 }
 
 def parse_yaml_file(yaml_file):
@@ -42,15 +49,61 @@ def parse_yaml_file(yaml_file):
 
     
     except Exception as e:
-        print(f"Error while parsing YAML file: {str(e)}")
+        print("Error while parsing YAML file:", e)
         sys.exit(1)
+
+
+def generate_fstab(parsed_fstab):
+    try:
+        
+        fstab_lines = []
+
+        for device_name, device_details in parsed_fstab.items(): 
+            
+            if 'mount' in device_details and device_details['mount']:
+                mount_point = device_details.get('mount')
+            else:
+                raise ValueError(f"Error generating fstab line for {device_name}, mount point is missing.")
+            
+            if 'type' in device_details and device_details['type'] and device_details['type'] in CONFIG['supported_mount_type']:
+                mount_type = device_details.get('type')
+            else:
+                raise ValueError(f"Error generating fstab line for {device_name}, mount type is missing or not supported.")
+            
+            if mount_type == 'nfs':
+                nfs_path = device_details.get('export')
+                if nfs_path:
+                    device_name = f"{device_name}:{nfs_path}"
+                else:
+                    raise ValueError(f"NFS mount {device_name} is missing 'export' field.")
+
+
+            mount_options = device_details.get('options', ['defaults'])
+            mount_options = ",".join(mount_options)
+
+            mount_dump = device_details.get('dump', '0')
+
+            mount_pass = device_details.get('pass', '0')
+
+            line = f"{device_name} {mount_point} {mount_type} {mount_options} {mount_dump} {mount_pass}"
+
+            fstab_lines.append(line)
+
+            if 'root-reserve' in device_details and device_details['root-reserve']: # In case we need to apply root reserve we should call related function here
+                print(f"Apply root reserve of {device_details['root-reserve']} on {device_name} partition...")
+
+        return fstab_lines
+
+    except Exception as e:
+        print("Error while generating fstab file:", e)
+        sys.exit(1)    
 
 
 def yaml_to_fstab(yaml_file, fstab_file):
     
     parsed_fstab = parse_yaml_file(yaml_file)
-    pprint.pprint(parsed_fstab)
-
+    generated_fstab = generate_fstab(parsed_fstab)
+    print(generated_fstab)
 
 def main():
     # Import argparse module to read command-line arguments
