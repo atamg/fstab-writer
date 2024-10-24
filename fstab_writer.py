@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 import re
+import shutil
 import sys
+import os
+from datetime import datetime
 
 CONFIG = {
     "device_pattern": r'^(/[^:]+|((25[0-5]|2[0-5][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])):$',  # Regex pattern for block devices, IPs
@@ -15,6 +18,8 @@ CONFIG = {
         "fusectl","efivarfs","mqueue","pstore","autofs","binfmt_misc",
         "vboxsf","overlay", "none", "xfs", "nfs", "swap"
         ],
+    "backup_path": "~/backups/fstab/",
+    "default_fstab_file":"/etc/fstab" 
 }
 
 def parse_yaml_file(yaml_file):
@@ -99,7 +104,7 @@ def generate_fstab(parsed_fstab):
         sys.exit(1)    
 
 
-def write_fstab(generated_fstab, fstab_file):
+def write_fstab(generated_fstab, fstab_file, last_backup_file):
     try:
         with open(fstab_file, 'w') as fstab:
             print(f"Writing fstab to: {fstab_file}")
@@ -109,7 +114,29 @@ def write_fstab(generated_fstab, fstab_file):
         return fstab_file
 
     except Exception as e:
-        print("Error while fstab file writing.")
+        print("Error while fstab file writing.", e)
+
+
+def backup_fstab():
+    try:
+        path = os.path.expanduser(CONFIG["backup_path"])
+        if not os.path.exists(path):
+            os.makedirs(path)
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_file = os.path.join(path, f"fstab_{current_time}.bak")
+        shutil.copy(CONFIG["default_fstab_file"], backup_file)
+        print(f"Backup of fstab created: {backup_file}")
+
+        return backup_file
+
+    except PermissionError:
+        print(f"Error: Insufficient permissions to create a backup of '/etc/fstab' in {path}.")
+        sys.exit(1)
+
+    except Exception as e:
+        print("Error while creating backup fstab.", e)
+        sys.exit(1)
+
 
 
 
@@ -119,7 +146,9 @@ def yaml_to_fstab(yaml_file, fstab_file):
     
     generated_fstab = generate_fstab(parsed_fstab)
     
-    result = write_fstab(generated_fstab, fstab_file)
+    last_backup = backup_fstab()
+    
+    result = write_fstab(generated_fstab, fstab_file, last_backup)
 
     print(f"fstab wrote successfully in the following path: {result}")
 
