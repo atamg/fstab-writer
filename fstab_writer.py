@@ -19,7 +19,8 @@ CONFIG = {
         "vboxsf","overlay", "none", "xfs", "nfs", "swap"
         ],
     "backup_path": "~/backups/fstab/",
-    "default_fstab_file":"/etc/fstab" 
+    "default_fstab_file": "./fstab",
+    "default_yaml_file": "./fstab.yaml"
 }
 
 def parse_yaml_file(yaml_file):
@@ -58,7 +59,7 @@ def parse_yaml_file(yaml_file):
         sys.exit(1)
 
 
-def generate_fstab(parsed_fstab):
+def generate_fstab(parsed_fstab, dry_run):
     try:
         
         fstab_lines = []
@@ -94,7 +95,7 @@ def generate_fstab(parsed_fstab):
 
             fstab_lines.append(line)
 
-            if 'root-reserve' in device_details and device_details['root-reserve']: # In case we need to apply root reserve we should call related function here
+            if 'root-reserve' in device_details and device_details['root-reserve'] and not dry_run: # In case we need to apply root reserve we should call related function here
                 print(f"Apply root reserve of {device_details['root-reserve']} on {device_name} partition...")
 
         return fstab_lines
@@ -104,27 +105,38 @@ def generate_fstab(parsed_fstab):
         sys.exit(1)    
 
 
-def write_fstab(generated_fstab, fstab_file, last_backup_file):
+def write_fstab(generated_fstab, fstab_file, last_backup_file, dry_run):
     try:
-        with open(fstab_file, 'w') as fstab:
-            print(f"Writing fstab to: {fstab_file}")
+        if not dry_run:
+            with open(fstab_file, 'w') as fstab:
+                print(f"Writing fstab to: {fstab_file}")
+                for line in generated_fstab:
+                    fstab.write(line + "\n")
+        else:
             for line in generated_fstab:
-                fstab.write(line + "\n")
-        
+                print(line)
+            return 'DRY_RUN'
         return fstab_file
+
+    except PermissionError:
+        print(f"Error: Insufficient permissions to write on {fstab_file}.")
+        sys.exit(1)
 
     except Exception as e:
         print("Error while fstab file writing.", e)
+        sys.exit(1)
 
 
-def backup_fstab():
+def backup_fstab(dry_run):
     try:
+        if dry_run:
+            return 'DRY_RUN'
         path = os.path.expanduser(CONFIG["backup_path"])
         if not os.path.exists(path):
             os.makedirs(path)
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_file = os.path.join(path, f"fstab_{current_time}.bak")
-        shutil.copy(CONFIG["default_fstab_file"], backup_file)
+        shutil.copy('/etc/fstab', backup_file)
         print(f"Backup of fstab created: {backup_file}")
 
         return backup_file
@@ -140,17 +152,18 @@ def backup_fstab():
 
 
 
-def yaml_to_fstab(yaml_file, fstab_file):
+def yaml_to_fstab(yaml_file, fstab_file, dry_run):
     
     parsed_fstab = parse_yaml_file(yaml_file)
     
-    generated_fstab = generate_fstab(parsed_fstab)
+    generated_fstab = generate_fstab(parsed_fstab, dry_run)
     
-    last_backup = backup_fstab()
+    last_backup = backup_fstab(dry_run)
     
-    result = write_fstab(generated_fstab, fstab_file, last_backup)
+    result = write_fstab(generated_fstab, fstab_file, last_backup, dry_run)
 
-    print(f"fstab wrote successfully in the following path: {result}")
+    if not dry_run:
+        print(f"fstab wrote successfully in the following path: {result}")
 
 def main():
     # Import argparse module to read command-line arguments
@@ -159,15 +172,16 @@ def main():
     # Initialize parser
     parser = argparse.ArgumentParser(description="Process YAML to generate /etc/fstab file")
 
-    # Add arguments (first argument, yaml_file, is mandatory)
-    parser.add_argument('yaml_file', type=str, help='Path to YAML file')
-    parser.add_argument('--fstab_file', type=str, default='./fstab', help='Path to fstab file')
+    # Add arguments
+    parser.add_argument('--yaml_file', type=str, default=CONFIG["default_yaml_file"], help='Path to YAML file')
+    parser.add_argument('--fstab_file', type=str, default=CONFIG["default_fstab_file"], help='Path to fstab file')
+    parser.add_argument('--dry_run', action='store_true', help='Print generated fstab entries without change files')
 
     # Read command-line arguments and return args object
     args = parser.parse_args()
 
     # Call yaml_to_fstab function
-    yaml_to_fstab(args.yaml_file, args.fstab_file)
+    yaml_to_fstab(args.yaml_file, args.fstab_file, args.dry_run)
 
 
 if __name__ == "__main__":
