@@ -14,7 +14,7 @@ CONFIG = {
         "ext2","ext4","squashfs","vfat","ecryptfs","fuseblk","fuse",
         "fusectl","efivarfs","mqueue","pstore","autofs","binfmt_misc",
         "vboxsf","overlay", "none", "xfs", "nfs", "swap"
-        ]
+        ],
 }
 
 def parse_yaml_file(yaml_file):
@@ -99,11 +99,29 @@ def generate_fstab(parsed_fstab):
         sys.exit(1)    
 
 
+def write_fstab(generated_fstab, fstab_file):
+    try:
+        with open(fstab_file, 'w') as fstab:
+            print(f"Writing fstab to: {fstab_file}")
+            for line in generated_fstab:
+                fstab.write(line + "\n")
+        
+        return fstab_file
+
+    except Exception as e:
+        print("Error while fstab file writing.")
+
+
+
 def yaml_to_fstab(yaml_file, fstab_file):
     
     parsed_fstab = parse_yaml_file(yaml_file)
+    
     generated_fstab = generate_fstab(parsed_fstab)
-    print(generated_fstab)
+    
+    result = write_fstab(generated_fstab, fstab_file)
+
+    print(f"fstab wrote successfully in the following path: {result}")
 
 def main():
     # Import argparse module to read command-line arguments
@@ -114,7 +132,7 @@ def main():
 
     # Add arguments (first argument, yaml_file, is mandatory)
     parser.add_argument('yaml_file', type=str, help='Path to YAML file')
-    parser.add_argument('--fstab_file', type=str, default='/etc/fstab', help='Path to fstab file')
+    parser.add_argument('--fstab_file', type=str, default='./fstab', help='Path to fstab file')
 
     # Read command-line arguments and return args object
     args = parser.parse_args()
