@@ -47,9 +47,9 @@ The script accepts the following command-line arguments:
 To run the script directly on Linux, you can make the script executable and run it from the command line. Here’s how:
 
 ```bash
-chmod +x fstab-writer.py
+chmod +x fstab_writer.py
 
-sudo ./fstab-writer.py
+sudo ./fstab_writer.py
 ```
 or execute the script using python. Here’s how:
 ```bash
@@ -64,7 +64,7 @@ sudo python3 ./fstab-writer.py
     sudo python3 fstab_writer.py --dry_run
     sudo python3 fstab_writer.py --root_reserve
     sudo python3 fstab_writer.py --yaml_file /path/file.yaml --fstab_file /path/fstab
-    sudo python3 fstab_writer.py --yaml_file /path/file.yaml --fstab_file /path/fstab --dry_run
+    sudo python3 fstab_writer.py --yaml_file /path/file.yaml --dry_run
     sudo python3 fstab_writer.py --yaml_file /path/file.yaml --fstab_file /path/fstab --root_reserve
 ```
 
