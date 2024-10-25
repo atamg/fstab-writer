@@ -2,6 +2,7 @@
 
 import re
 import shutil
+import subprocess
 import sys
 import os
 from datetime import datetime
@@ -19,7 +20,7 @@ CONFIG = {
         "vboxsf","overlay", "none", "xfs", "nfs", "swap"
         ],
     "backup_path": "~/backups/fstab/",
-    "default_fstab_file": "./fstab",
+    "default_fstab_file": "/etc/fstab",
     "default_yaml_file": "./fstab.yaml"
 }
 
@@ -150,6 +151,31 @@ def backup_fstab(dry_run):
         sys.exit(1)
 
 
+def validate_fstab():
+    try:
+        # Execute the `mount -a` command to remount filesystems
+        result = subprocess.run(['mount', '-a'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error during 'mount -a': {e.stderr.decode().strip()}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error during 'mount -a': {str(e)}")
+        return False
+
+
+def restore_last_backup(last_backup):
+    try:
+        shutil.copy(last_backup, CONFIG["default_fstab_file"])
+        print(f"Last fstab backup has been restored.")
+        return 1
+
+    except PermissionError:
+        print("Error: Insufficient permissions to restore a backup of '/etc/fstab'.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error during restore: {str(e)}")
+        sys.exit(1)
 
 
 def yaml_to_fstab(yaml_file, fstab_file, dry_run, root_reserve):
@@ -164,6 +190,17 @@ def yaml_to_fstab(yaml_file, fstab_file, dry_run, root_reserve):
 
     if not dry_run:
         print(f"fstab wrote successfully in the following path: {result}")
+
+        if fstab_file == '/etc/fstab':
+            validate_result = False
+            validate_result = validate_fstab()
+    
+            if not validate_result:
+                print("Validation of changes failed; changes will be rolled back...")
+                restore_last_backup(last_backup)
+            else:
+                print("fstab update validated successfully.")
+                return 0
 
 def main():
     # Import argparse module to read command-line arguments
