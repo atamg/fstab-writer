@@ -53,7 +53,7 @@ sudo ./fstab_writer.py
 ```
 or execute the script using python. Here’s how:
 ```bash
-sudo python3 ./fstab-writer.py
+sudo python3 fstab_writer.py
 ```
 
 **Example commands:**
